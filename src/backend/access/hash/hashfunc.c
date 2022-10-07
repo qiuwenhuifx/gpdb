@@ -27,6 +27,7 @@
 #include "postgres.h"
 
 #include "access/hash.h"
+#include "utils/typcache.h"
 
 
 /* Note: this is used for both "char" and boolean datatypes */
@@ -77,7 +78,27 @@ hashoid(PG_FUNCTION_ARGS)
 Datum
 hashenum(PG_FUNCTION_ARGS)
 {
-	return hash_uint32((uint32) PG_GETARG_OID(0));
+
+	/*
+	* Instead of using oid when hashing an enum value, instead look up the 
+	* enumsortorder and pass that into the hash function. This is necessary 
+	* because enum OIDs will be rewritten when restored to a new database, 
+	* and this will result in non-deterministic hashing.  The hash value is 
+	* used to distribute rows to various segments and so restoring data will 
+	* fail for any tables distributed by an enum column if hashed by OID.
+	*/
+	
+	/*extract the oid of the enum we're hashing*/
+	uint32 enum_oid = (uint32) PG_GETARG_OID(0);
+	float4 enum_sort_order = extract_enum_sort_order(enum_oid);
+
+	/*
+	* Maintain consistent approach with hashfloat4 by casting the float4 enum 
+	* sort order to a float8, and hashing that.  Not strictly necessary in 
+	* this case but best to have predictable behavior for hashing floats.
+	*/
+	float8 key8 = enum_sort_order;
+	return hash_any((unsigned char *) &key8, sizeof(key8));
 }
 
 Datum
