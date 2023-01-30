@@ -128,6 +128,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel, bool auto_s
 	bool		disable_page_skipping = false;
 	bool		rootonly = false;
 	bool		fullscan = false;
+	bool		ao_aux_only = false;
 	int			ao_phase = 0;
 	ListCell   *lc;
 
@@ -172,6 +173,11 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel, bool auto_s
 		{
 			ao_phase = defGetInt32(opt);
 			Assert((ao_phase & VACUUM_AO_PHASE_MASK) == ao_phase);
+		}
+		else if (strcmp(opt->defname, "ao_aux_only") == 0)
+		{
+			ao_aux_only = defGetBoolean(opt);
+			fprintf(stderr, "AJR -- we capture the option!");
 		}
 		else
 			ereport(ERROR,
